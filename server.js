@@ -8,23 +8,31 @@ const dotenv = require('dotenv');
 const authRoutes = require('./routes/auth');
 const menuRoutes = require('./routes/menu');
 const cartRoutes = require('./routes/cart');
-const orderRoutes = require('./routes/order'); 
+const orderRoutes = require('./routes/order');
 const razorpayRoutes = require('./routes/razorpay');
 
 // Load environment variables
 const envPath = path.join(__dirname, '.env');
-console.log('Attempting to load .env file from:', envPath);
-if (!fs.existsSync(envPath)) {
-  console.error('Error: .env file not found at', envPath);
-  process.exit(1);
+if (fs.existsSync(envPath)) {
+  const dotenvResult = dotenv.config({ path: envPath });
+  if (dotenvResult.error) {
+    console.error('Error loading .env file:', dotenvResult.error);
+    process.exit(1);
+  }
+  console.log('Loaded .env file from:', envPath);
+} else {
+  console.warn('No .env file found, relying on environment variables');
 }
-const dotenvResult = dotenv.config({ path: envPath });
-if (dotenvResult.error) {
-  console.error('Error loading .env file:', dotenvResult.error);
+
+// Verify required environment variables
+const requiredEnvVars = ['MONGODB_URI', 'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'JWT_SECRET'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (missingEnvVars.length > 0) {
+  console.error('Missing required environment variables:', missingEnvVars);
   process.exit(1);
 }
 
-// Debug: Log environment variables to verify
+// Debug: Log environment variables
 console.log('Environment Variables Loaded:', {
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET ? '[REDACTED]' : undefined,
@@ -40,7 +48,14 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://food-kohl-theta.vercel.app/'],
+  origin: (origin, callback) => {
+    const allowedOrigins = ['http://localhost:3000', 'https://food-kohl-theta.vercel.app/'];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -48,7 +63,6 @@ app.use(express.json());
 app.use(morgan('combined', {
   stream: fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' })
 }));
-app.use(morgan('combined'));
 
 // Root route
 app.get('/', (req, res) => {
@@ -59,13 +73,29 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes.router);
 app.use('/api/menu', menuRoutes);
 app.use('/api/cart', cartRoutes);
-app.use('/api', orderRoutes);
-app.use('/api', razorpayRoutes);
+app.use('/api/orders', orderRoutes); // Updated for consistency
+app.use('/api/razorpay', razorpayRoutes); // Updated for consistency
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// Connect to MongoDB with retry
+const connectDB = async () => {
+  let retries = 5;
+  while (retries) {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI);
+      console.log('MongoDB connected');
+      break;
+    } catch (err) {
+      console.error('MongoDB connection error:', err);
+      retries -= 1;
+      if (retries === 0) {
+        console.error('MongoDB connection failed after retries');
+        process.exit(1);
+      }
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+  }
+};
+connectDB();
 
 // Start server
 const PORT = process.env.PORT || 5000;

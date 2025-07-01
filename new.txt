@@ -45,7 +45,7 @@ const menuItemSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('MenuItem', menuItemSchema);
-then i have Order.js file
+then i have order.js file
 const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
@@ -64,7 +64,7 @@ const orderSchema = new mongoose.Schema({
 
 // Add indexes for faster queries
 orderSchema.index({ userId: 1 });
-orderSchema.index({ 'items.menuItemId': 1 }); // Added index for faster order queries
+orderSchema.index({ 'items.menuItemId': 1 });
 
 module.exports = mongoose.model('Order', orderSchema);
 then i have User.js file
@@ -437,7 +437,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const authMiddleware = require('../middleware/authMiddleware');
 const CartItem = require('../models/CartItem');
-const Order = require('../models/Order');
+const Order = require('../models/order'); // Fixed: Use uppercase 'Order'
 const MenuItem = require('../models/MenuItem');
 
 router.post(
@@ -465,10 +465,10 @@ router.post(
         if (!menuItem) {
           return res.status(404).json({ message: `Menu item not found: ${item.menuItemId}` });
         }
-        totalAmount += item.quantity * menuItem.price; // Fixed typo: Removed "Maeve +="
+        totalAmount += item.quantity * menuItem.price;
         orderItems.push({ menuItemId: menuItem._id, quantity: item.quantity });
       }
-      const order = new Order({
+      const order = new Order({ // Fixed: Use uppercase 'Order'
         userId: req.user.userId,
         items: orderItems,
         totalAmount,
@@ -774,7 +774,7 @@ const dotenv = require('dotenv');
 const authRoutes = require('./routes/auth');
 const menuRoutes = require('./routes/menu');
 const cartRoutes = require('./routes/cart');
-const orderRoutes = require('./routes/Order'); // Fixed: Changed 'Order' to 'order'
+const orderRoutes = require('./routes/order'); 
 const razorpayRoutes = require('./routes/razorpay');
 
 // Load environment variables
@@ -829,12 +829,9 @@ app.use('/api', orderRoutes);
 app.use('/api', razorpayRoutes);
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.error('MongoDB connection error:', err));
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // Start server
 const PORT = process.env.PORT || 5000;
@@ -842,119 +839,3 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 then i have uploadImages.js file
-require('dotenv').config();
-const { v2: cloudinary } = require('cloudinary');
-const fs = require('fs');
-const path = require('path');
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-// Path to local images
-const imagesDir = path.join(__dirname, '..', 'food', 'src', 'assets', 'menu');
-const images = [
-  'burger-11.jpg',
-  'burger-12.jpg',
-  'burger-13.jpg',
-  'burger-14.jpg',
-  'burger-15.jpg',
-  'burger-16.jpg',
-  'burger-17.jpg',
-  'burger-18.jpg',
-  'ads-1.jpg',
-];
-
-// Check if directory exists
-if (!fs.existsSync(imagesDir)) {
-  console.error('Error: Images directory does not exist:', imagesDir);
-  process.exit(1);
-}
-
-// Check available files
-const files = fs.readdirSync(imagesDir);
-console.log('Files in menu directory:', files);
-if (files.length === 0) {
-  console.error('Error: No files found in menu directory');
-  process.exit(1);
-}
-
-async function uploadImages() {
-  let uploadedCount = 0;
-  const errors = [];
-  for (const image of images) {
-    const filePath = path.join(imagesDir, image);
-    if (!fs.existsSync(filePath)) {
-      errors.push(`File not found: ${filePath}`);
-      continue;
-    }
-    try {
-      const result = await cloudinary.uploader.upload(filePath, {
-        folder: 'menu',
-        public_id: image.replace(/\.[^/.]+$/, ''),
-      });
-      console.log(`Uploaded ${image}: ${result.url}`);
-      uploadedCount++;
-    } catch (error) {
-      errors.push(`Failed to upload ${image}: ${error.message}`);
-    }
-  }
-  console.log(`Successfully uploaded ${uploadedCount} images`);
-  if (errors.length > 0) {
-    console.error('Errors encountered:', errors);
-  }
-  process.exit(errors.length > 0 ? 1 : 0);
-}
-
-uploadImages(); 
-this is my backend code in local it running but i deploy on render so it show error  PS C:\Users\bhara\OneDrive\Desktop\food\backend> node server.js                                
-Exported from auth.js: {
-  router: [Function: router] {
-    caseSensitive: undefined,
-    mergeParams: undefined,
-    params: {},
-    strict: undefined,
-    stack: [ [Layer], [Layer], [Layer], [Layer] ]
-  },
-  authMiddleware: [AsyncFunction (anonymous)],
-  adminMiddleware: [Function: adminMiddleware]
-}
-Imported middlewares in menu.js: {
-  authMiddleware: [AsyncFunction (anonymous)],
-  adminMiddleware: [Function: adminMiddleware]
-}
-[Debug] Current environment variables: {
-  RAZORPAY_KEY_ID: '***exists***',
-  RAZORPAY_KEY_SECRET: '***exists***',
-  NODE_ENV: 'development'
-}
-[Info] Razorpay client initialized with key: rzp_test_UiTkSmK6mjclhU
-Attempting to load .env file from: C:\Users\bhara\OneDrive\Desktop\food\backend\.env
-Environment Variables Loaded: {
-  RAZORPAY_KEY_ID: 'rzp_test_UiTkSmK6mjclhU',
-  RAZORPAY_KEY_SECRET: '[REDACTED]',
-  MONGODB_URI: '[REDACTED]',
-  JWT_SECRET: '[REDACTED]',
-  CLOUDINARY_CLOUD_NAME: '[REDACTED]',
-  CLOUDINARY_API_KEY: '[REDACTED]',
-  CLOUDINARY_API_SECRET: '[REDACTED]'
-}
-(node:26208) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version 
-(Use `node --trace-warnings ...` to show where the warning was created)
-(node:26208) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
-Server is running on port 5000
-MongoDB connected
-
-see this error node:internal/modules/cjs/loader:1372
-  throw err;
-  ^
-Error: Cannot find module './routes/Order'
-Require stack:
-- /opt/render/project/src/server.js
-    at Module._resolveFilename (node:internal/modules/cjs/loader:1369:15)
-    at defaultResolveImpl (node:internal/modules/cjs/loader:1025:19)
-    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1030:22)
-    at Module._load (node:internal/modules/cjs/loader:1179:37)
