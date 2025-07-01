@@ -8,7 +8,7 @@ const dotenv = require('dotenv');
 const authRoutes = require('./routes/auth');
 const menuRoutes = require('./routes/menu');
 const cartRoutes = require('./routes/cart');
-const orderRoutes = require('./routes/Order'); // Fixed: Changed 'Order' to 'order'
+const orderRoutes = require('./routes/order'); 
 const razorpayRoutes = require('./routes/razorpay');
 
 // Load environment variables
@@ -63,12 +63,9 @@ app.use('/api', orderRoutes);
 app.use('/api', razorpayRoutes);
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.error('MongoDB connection error:', err));
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // Start server
 const PORT = process.env.PORT || 5000;

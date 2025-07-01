@@ -3,7 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const authMiddleware = require('../middleware/authMiddleware');
 const CartItem = require('../models/CartItem');
-const Order = require('../models/Order');
+const Order = require('../models/order'); // Fixed: Use uppercase 'Order'
 const MenuItem = require('../models/MenuItem');
 
 router.post(
@@ -31,10 +31,10 @@ router.post(
         if (!menuItem) {
           return res.status(404).json({ message: `Menu item not found: ${item.menuItemId}` });
         }
-        totalAmount += item.quantity * menuItem.price; // Fixed typo: Removed "Maeve +="
+        totalAmount += item.quantity * menuItem.price;
         orderItems.push({ menuItemId: menuItem._id, quantity: item.quantity });
       }
-      const order = new Order({
+      const order = new Order({ // Fixed: Use uppercase 'Order'
         userId: req.user.userId,
         items: orderItems,
         totalAmount,

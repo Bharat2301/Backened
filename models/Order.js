@@ -16,6 +16,6 @@ const orderSchema = new mongoose.Schema({
 
 // Add indexes for faster queries
 orderSchema.index({ userId: 1 });
-orderSchema.index({ 'items.menuItemId': 1 }); // Added index for faster order queries
+orderSchema.index({ 'items.menuItemId': 1 });
 
 module.exports = mongoose.model('Order', orderSchema);
