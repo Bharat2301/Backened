@@ -19,7 +19,7 @@ module.exports = async (req, res, next) => {
     res.status(401).json({ message: 'Invalid token' });
   }
 };
-then i have models folder in that i have CartItem.js file
+then i have models folder in that i have models folder in that i have CartItem.js file
 const mongoose = require('mongoose');
 
 const cartItemSchema = new mongoose.Schema({
@@ -32,6 +32,19 @@ const cartItemSchema = new mongoose.Schema({
 cartItemSchema.index({ userId: 1, menuItemId: 1 });
 
 module.exports = mongoose.model('CartItem', cartItemSchema);
+then i have MenuItem.js file
+const mongoose = require('mongoose');
+
+const menuItemSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true }, // unique: true creates the index
+  title: { type: String, required: true },
+  paragraph: { type: String, required: true },
+  price: { type: Number, required: true, min: 0 },
+  rating: { type: Number, required: true, min: 0, max: 5 }, // Added validation
+  image: { type: String, required: true },
+});
+
+module.exports = mongoose.model('MenuItem', menuItemSchema);
 then i have MenuItem.js file
 const mongoose = require('mongoose');
 
@@ -437,7 +450,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const authMiddleware = require('../middleware/authMiddleware');
 const CartItem = require('../models/CartItem');
-const Order = require('../models/order'); // Fixed: Use uppercase 'Order'
+const Order = require('../models/Order'); // Fixed: Use uppercase 'Order'
 const MenuItem = require('../models/MenuItem');
 
 router.post(
@@ -468,7 +481,7 @@ router.post(
         totalAmount += item.quantity * menuItem.price;
         orderItems.push({ menuItemId: menuItem._id, quantity: item.quantity });
       }
-      const order = new Order({ // Fixed: Use uppercase 'Order'
+      const order = new Order({
         userId: req.user.userId,
         items: orderItems,
         totalAmount,
@@ -774,23 +787,31 @@ const dotenv = require('dotenv');
 const authRoutes = require('./routes/auth');
 const menuRoutes = require('./routes/menu');
 const cartRoutes = require('./routes/cart');
-const orderRoutes = require('./routes/order'); 
+const orderRoutes = require('./routes/order');
 const razorpayRoutes = require('./routes/razorpay');
 
 // Load environment variables
 const envPath = path.join(__dirname, '.env');
-console.log('Attempting to load .env file from:', envPath);
-if (!fs.existsSync(envPath)) {
-  console.error('Error: .env file not found at', envPath);
-  process.exit(1);
+if (fs.existsSync(envPath)) {
+  const dotenvResult = dotenv.config({ path: envPath });
+  if (dotenvResult.error) {
+    console.error('Error loading .env file:', dotenvResult.error);
+    process.exit(1);
+  }
+  console.log('Loaded .env file from:', envPath);
+} else {
+  console.warn('No .env file found, relying on environment variables');
 }
-const dotenvResult = dotenv.config({ path: envPath });
-if (dotenvResult.error) {
-  console.error('Error loading .env file:', dotenvResult.error);
+
+// Verify required environment variables
+const requiredEnvVars = ['MONGODB_URI', 'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'JWT_SECRET'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (missingEnvVars.length > 0) {
+  console.error('Missing required environment variables:', missingEnvVars);
   process.exit(1);
 }
 
-// Debug: Log environment variables to verify
+// Debug: Log environment variables
 console.log('Environment Variables Loaded:', {
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET ? '[REDACTED]' : undefined,
@@ -806,7 +827,14 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://food-kohl-theta.vercel.app/'],
+  origin: (origin, callback) => {
+    const allowedOrigins = ['http://localhost:3000', 'https://food-kohl-theta.vercel.app/'];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -814,7 +842,6 @@ app.use(express.json());
 app.use(morgan('combined', {
   stream: fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' })
 }));
-app.use(morgan('combined'));
 
 // Root route
 app.get('/', (req, res) => {
@@ -825,13 +852,29 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes.router);
 app.use('/api/menu', menuRoutes);
 app.use('/api/cart', cartRoutes);
-app.use('/api', orderRoutes);
-app.use('/api', razorpayRoutes);
+app.use('/api/orders', orderRoutes); // Updated for consistency
+app.use('/api/razorpay', razorpayRoutes); // Updated for consistency
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// Connect to MongoDB with retry
+const connectDB = async () => {
+  let retries = 5;
+  while (retries) {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI);
+      console.log('MongoDB connected');
+      break;
+    } catch (err) {
+      console.error('MongoDB connection error:', err);
+      retries -= 1;
+      if (retries === 0) {
+        console.error('MongoDB connection failed after retries');
+        process.exit(1);
+      }
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+  }
+};
+connectDB();
 
 // Start server
 const PORT = process.env.PORT || 5000;
@@ -839,3 +882,105 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 then i have uploadImages.js file
+require('dotenv').config();
+const { v2: cloudinary } = require('cloudinary');
+const fs = require('fs');
+const path = require('path');
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Path to local images
+const imagesDir = path.join(__dirname, '..', 'food', 'src', 'assets', 'menu');
+const images = [
+  'burger-11.jpg',
+  'burger-12.jpg',
+  'burger-13.jpg',
+  'burger-14.jpg',
+  'burger-15.jpg',
+  'burger-16.jpg',
+  'burger-17.jpg',
+  'burger-18.jpg',
+  'ads-1.jpg',
+];
+
+// Check if directory exists
+if (!fs.existsSync(imagesDir)) {
+  console.error('Error: Images directory does not exist:', imagesDir);
+  process.exit(1);
+}
+
+// Check available files
+const files = fs.readdirSync(imagesDir);
+console.log('Files in menu directory:', files);
+if (files.length === 0) {
+  console.error('Error: No files found in menu directory');
+  process.exit(1);
+}
+
+async function uploadImages() {
+  let uploadedCount = 0;
+  const errors = [];
+  for (const image of images) {
+    const filePath = path.join(imagesDir, image);
+    if (!fs.existsSync(filePath)) {
+      errors.push(`File not found: ${filePath}`);
+      continue;
+    }
+    try {
+      const result = await cloudinary.uploader.upload(filePath, {
+        folder: 'menu',
+        public_id: image.replace(/\.[^/.]+$/, ''),
+      });
+      console.log(`Uploaded ${image}: ${result.url}`);
+      uploadedCount++;
+    } catch (error) {
+      errors.push(`Failed to upload ${image}: ${error.message}`);
+    }
+  }
+  console.log(`Successfully uploaded ${uploadedCount} images`);
+  if (errors.length > 0) {
+    console.error('Errors encountered:', errors);
+  }
+  process.exit(errors.length > 0 ? 1 : 0);
+}
+
+uploadImages();
+File name 'c:/Users/bhara/OneDrive/Desktop/food/backend/routes/order.js' differs from already included file name 'c:/Users/bhara/OneDrive/Desktop/food/backend/routes/Order.js' only in casing.
+  The file is in the program because:
+    Root file specified for compilation
+    Imported via './routes/order' from file 'c:/Users/bhara/OneDrive/Desktop/food/backend/server.js'
+
+    food-kohl-theta.vercel.app/:1 Access to XMLHttpRequest at 'https://backened-76cg.onrender.com/api/menu' from origin 'https://food-kohl-theta.vercel.app' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+Section3.js:35 Error fetching menu items: Oo {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}code: "ERR_NETWORK"config: adapter: (3) ['xhr', 'http', 'fetch']allowAbsoluteUrls: truedata: undefinedenv: {FormData: ƒ, Blob: ƒ}headers: ls {Accept: 'application/json, text/plain, */*', Content-Type: undefined}maxBodyLength: -1maxContentLength: -1method: "get"timeout: 0transformRequest: [ƒ]transformResponse: [ƒ]transitional: {silentJSONParsing: true, forcedJSONParsing: true, clarifyTimeoutError: false}url: "https://backened-76cg.onrender.com/api/menu"validateStatus: ƒ (e)xsrfCookieName: "XSRF-TOKEN"xsrfHeaderName: "X-XSRF-TOKEN"[[Prototype]]: Objectmessage: "Network Error"name: "AxiosError"request: XMLHttpRequest {onreadystatechange: null, readyState: 4, timeout: 0, withCredentials: false, upload: XMLHttpRequestUpload, …}stack: "AxiosError: Network Error\n    at p.onerror (https://food-kohl-theta.vercel.app/static/js/main.b7aaf8eb.js:2:277037)\n    at ol.request (https://food-kohl-theta.vercel.app/static/js/main.b7aaf8eb.js:2:287725)\n    at async https://food-kohl-theta.vercel.app/static/js/main.b7aaf8eb.js:2:307654"[[Prototype]]: Error
+overrideMethod @ hook.js:608
+(anonymous) @ Section3.js:35
+await in (anonymous)
+(anonymous) @ Section3.js:41
+rl @ react-dom.production.min.js:243
+jc @ react-dom.production.min.js:285
+(anonymous) @ react-dom.production.min.js:281
+j @ scheduler.production.min.js:13
+O @ scheduler.production.min.js:14
+Section3.js:32 
+            
+            
+           GET https://backened-76cg.onrender.com/api/menu net::ERR_FAILED 500 (Internal Server Error)
+(anonymous) @ xhr.js:195
+xhr @ xhr.js:15
+el @ dispatchRequest.js:51
+_request @ Axios.js:187
+request @ Axios.js:40
+Co.forEach.ol.<computed> @ Axios.js:213
+(anonymous) @ bind.js:5
+(anonymous) @ Section3.js:32
+(anonymous) @ Section3.js:41
+rl @ react-dom.production.min.js:243
+jc @ react-dom.production.min.js:285
+(anonymous) @ react-dom.production.min.js:281
+j @ scheduler.production.min.js:13
+O @ scheduler.production.min.js:14

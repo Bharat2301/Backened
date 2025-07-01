@@ -34,7 +34,7 @@ if (missingEnvVars.length > 0) {
 
 // Debug: Log environment variables
 console.log('Environment Variables Loaded:', {
-  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID ? '[REDACTED]' : undefined,
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET ? '[REDACTED]' : undefined,
   MONGODB_URI: process.env.MONGODB_URI ? '[REDACTED]' : undefined,
   JWT_SECRET: process.env.JWT_SECRET ? '[REDACTED]' : undefined,
@@ -49,15 +49,21 @@ const app = express();
 // Middleware
 app.use(cors({
   origin: (origin, callback) => {
-    const allowedOrigins = ['http://localhost:3000', 'https://food-kohl-theta.vercel.app/'];
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'https://food-kohl-theta.vercel.app',
+      'https://food-kohl-theta.vercel.app/',
+    ];
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.error('CORS error: Origin not allowed:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 }));
 app.use(express.json());
 app.use(morgan('combined', {
@@ -73,19 +79,27 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes.router);
 app.use('/api/menu', menuRoutes);
 app.use('/api/cart', cartRoutes);
-app.use('/api/orders', orderRoutes); // Updated for consistency
-app.use('/api/razorpay', razorpayRoutes); // Updated for consistency
+app.use('/api/orders', orderRoutes);
+app.use('/api/razorpay', razorpayRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err.message, err.stack);
+  res.status(500).json({ message: 'Internal server error', error: err.message });
+});
 
 // Connect to MongoDB with retry
 const connectDB = async () => {
   let retries = 5;
   while (retries) {
     try {
-      await mongoose.connect(process.env.MONGODB_URI);
-      console.log('MongoDB connected');
+      await mongoose.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000,
+      });
+      console.log('MongoDB connected successfully');
       break;
     } catch (err) {
-      console.error('MongoDB connection error:', err);
+      console.error('MongoDB connection error:', err.message, err.stack);
       retries -= 1;
       if (retries === 0) {
         console.error('MongoDB connection failed after retries');
