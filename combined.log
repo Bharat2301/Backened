@@ -143,3 +143,5 @@ undefined [INFO] PUT /api/cart/0003 {"ip":"::1","timestamp":"2025-07-01T09:25:56
 undefined [INFO] PUT /api/cart/0003 {"ip":"::1","timestamp":"2025-07-01T09:25:57.042Z"}
 undefined [INFO] PUT /api/cart/0002 {"ip":"::1","timestamp":"2025-07-01T09:25:58.889Z"}
 undefined [INFO] PUT /api/cart/0002 {"ip":"::1","timestamp":"2025-07-01T09:25:59.103Z"}
+undefined [INFO] GET /api/menu {"ip":"::1","timestamp":"2025-07-01T10:00:07.516Z"}
+undefined [INFO] GET /api/menu {"ip":"::1","timestamp":"2025-07-01T10:00:12.754Z"}
