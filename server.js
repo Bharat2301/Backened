@@ -8,18 +8,39 @@ const dotenv = require('dotenv');
 const authRoutes = require('./routes/auth');
 const menuRoutes = require('./routes/menu');
 const cartRoutes = require('./routes/cart');
-const orderRoutes = require('./routes/order');
+const orderRoutes = require('./routes/Order'); // Fixed: Changed 'Order' to 'order'
 const razorpayRoutes = require('./routes/razorpay');
 
 // Load environment variables
-dotenv.config();
+const envPath = path.join(__dirname, '.env');
+console.log('Attempting to load .env file from:', envPath);
+if (!fs.existsSync(envPath)) {
+  console.error('Error: .env file not found at', envPath);
+  process.exit(1);
+}
+const dotenvResult = dotenv.config({ path: envPath });
+if (dotenvResult.error) {
+  console.error('Error loading .env file:', dotenvResult.error);
+  process.exit(1);
+}
+
+// Debug: Log environment variables to verify
+console.log('Environment Variables Loaded:', {
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
+  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET ? '[REDACTED]' : undefined,
+  MONGODB_URI: process.env.MONGODB_URI ? '[REDACTED]' : undefined,
+  JWT_SECRET: process.env.JWT_SECRET ? '[REDACTED]' : undefined,
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ? '[REDACTED]' : undefined,
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY ? '[REDACTED]' : undefined,
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ? '[REDACTED]' : undefined,
+});
 
 // Initialize Express app
 const app = express();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://food-kohl-theta.vercel.app/'], // Update with your frontend Render URL
+  origin: ['http://localhost:3000', 'https://food-kohl-theta.vercel.app/'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -35,7 +56,7 @@ app.get('/', (req, res) => {
 });
 
 // Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes.router);
 app.use('/api/menu', menuRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api', orderRoutes);
