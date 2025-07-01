@@ -1,1 +1,40 @@
-node_modules
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Build directories
+dist/
+build/
+.out/
+.next/
+
+# IDE specific
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# macOS
+.DS_Store
+
+# Testing
+coverage/
+
+# Debug logs
+*.log
+logs/
+
+# Cloudinary uploads
+uploads/
