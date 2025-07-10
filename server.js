@@ -49,10 +49,10 @@ const app = express();
 // Middleware
 app.use(cors({
   origin: (origin, callback) => {
+    console.log('Request origin:', origin); // Debug log to check incoming origin
     const allowedOrigins = [
       'http://localhost:3000',
       'https://food-kohl-theta.vercel.app',
-      'https://food-kohl-theta.vercel.app/',
     ];
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -61,10 +61,23 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Added OPTIONS for preflight
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 }));
+
+// Alternative manual CORS setup (uncomment if needed for testing)
+// app.use((req, res, next) => {
+//   res.header('Access-Control-Allow-Origin', 'https://food-kohl-theta.vercel.app');
+//   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+//   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+//   res.header('Access-Control-Allow-Credentials', 'true');
+//   if (req.method === 'OPTIONS') {
+//     return res.sendStatus(200);
+//   }
+//   next();
+// });
+
 app.use(express.json());
 app.use(morgan('combined', {
   stream: fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' })

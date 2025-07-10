@@ -1,4 +1,4 @@
-i have Backend folder in that i have middleware folder in that i have authMiddleware.js file
+i have backend folder in that i have middleware folder in that i have authMiddleware.js file
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
@@ -511,7 +511,7 @@ const crypto = require('crypto');
 console.log('[Debug] Current environment variables:', {
   RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID ? '***exists***' : 'MISSING',
   RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET ? '***exists***' : 'MISSING',
-  NODE_ENV: process.env.NODE_ENV || 'development'
+  NODE_ENV: process.env.NODE_ENV || 'development',
 });
 
 // Validate environment variables
@@ -524,46 +524,55 @@ if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
 // Initialize Razorpay with enhanced configuration
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
 console.log('[Info] Razorpay client initialized with key:', process.env.RAZORPAY_KEY_ID);
 
-/**
- * @route POST /create-order
- * @description Create a Razorpay order
- * @access Private
- */
+// Get Razorpay key ID (publicly accessible)
+router.get('/razorpay-key', (req, res) => {
+  try {
+    if (!process.env.RAZORPAY_KEY_ID) {
+      throw new Error('Razorpay key ID not configured');
+    }
+    res.json({
+      success: true,
+      keyId: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (error) {
+    console.error('[Error] Failed to fetch Razorpay key:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch Razorpay key',
+      error: error.message,
+    });
+  }
+});
+
+// Create a Razorpay order
 router.post(
   '/create-order',
   authMiddleware,
   [
     body('amount').isInt({ min: 1 }).withMessage('Amount must be at least 1 INR'),
-    body('currency').isIn(['INR']).withMessage('Only INR currency supported')
+    body('currency').isIn(['INR']).withMessage('Only INR currency supported'),
   ],
   async (req, res) => {
-    // Validate request body
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-
     const { amount, currency, receipt_note } = req.body;
-    
     try {
       const options = {
         amount: amount * 100, // Convert to paise
         currency: currency || 'INR',
         receipt: receipt_note || `order_${Date.now()}`,
-        payment_capture: 1 // Auto-capture payment
+        payment_capture: 1,
       };
-
       console.log('[Debug] Creating order with options:', options);
-      
       const order = await razorpay.orders.create(options);
-      
       console.log('[Success] Order created:', order.id);
-      
       res.json({
         success: true,
         order: {
@@ -571,95 +580,79 @@ router.post(
           amount: order.amount,
           currency: order.currency,
           receipt: order.receipt,
-          status: order.status
-        }
+          status: order.status,
+        },
       });
-
     } catch (error) {
       console.error('[Error] Order creation failed:', {
         error: error.error?.description || error.message,
         statusCode: error.statusCode,
-        request: error.error?.metadata?.order_request
+        request: error.error?.metadata?.order_request,
       });
-      
       res.status(error.statusCode || 500).json({
         success: false,
         message: 'Order creation failed',
-        error: error.error?.description || error.message
+        error: error.error?.description || error.message,
       });
     }
   }
 );
 
-/**
- * @route POST /verify-payment
- * @description Verify Razorpay payment signature
- * @access Private
- */
+// Verify Razorpay payment signature
 router.post(
   '/verify-payment',
   authMiddleware,
   [
     body('razorpay_order_id').notEmpty().withMessage('Order ID required'),
     body('razorpay_payment_id').notEmpty().withMessage('Payment ID required'),
-    body('razorpay_signature').notEmpty().withMessage('Signature required')
+    body('razorpay_signature').notEmpty().withMessage('Signature required'),
   ],
   async (req, res) => {
-    // Validate request body
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-    
     try {
-      // Generate expected signature
       const expectedSignature = crypto
         .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
         .update(`${razorpay_order_id}|${razorpay_payment_id}`)
         .digest('hex');
-
       console.log('[Debug] Signature verification:', {
         received: razorpay_signature,
-        generated: expectedSignature
+        generated: expectedSignature,
       });
-
-      // Verify signature
       if (expectedSignature !== razorpay_signature) {
         console.warn('[Warning] Signature mismatch for order:', razorpay_order_id);
         return res.status(400).json({
           success: false,
-          message: 'Invalid payment signature'
+          message: 'Invalid payment signature',
         });
       }
-
       console.log('[Success] Payment verified for order:', razorpay_order_id);
-      
       res.json({
         success: true,
         paymentId: razorpay_payment_id,
         orderId: razorpay_order_id,
-        message: 'Payment verified successfully'
+        message: 'Payment verified successfully',
       });
-
     } catch (error) {
       console.error('[Error] Payment verification failed:', error.message);
       res.status(500).json({
         success: false,
         message: 'Payment verification failed',
-        error: error.message
+        error: error.message,
       });
     }
   }
 );
 
-// Additional debug endpoint
+// Debug endpoint
 router.get('/config-check', (req, res) => {
   res.json({
     razorpay_configured: !!process.env.RAZORPAY_KEY_ID,
     node_env: process.env.NODE_ENV || 'development',
-    server_time: new Date().toISOString()
+    server_time: new Date().toISOString(),
   });
 });
 
@@ -764,124 +757,74 @@ async function seed() {
 
 seed();
 then i have server.js file
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const morgan = require('morgan');
+require('dotenv').config();
+const { v2: cloudinary } = require('cloudinary');
 const fs = require('fs');
 const path = require('path');
-const dotenv = require('dotenv');
-const authRoutes = require('./routes/auth');
-const menuRoutes = require('./routes/menu');
-const cartRoutes = require('./routes/cart');
-const orderRoutes = require('./routes/order');
-const razorpayRoutes = require('./routes/razorpay');
 
-// Load environment variables
-const envPath = path.join(__dirname, '.env');
-if (fs.existsSync(envPath)) {
-  const dotenvResult = dotenv.config({ path: envPath });
-  if (dotenvResult.error) {
-    console.error('Error loading .env file:', dotenvResult.error);
-    process.exit(1);
-  }
-  console.log('Loaded .env file from:', envPath);
-} else {
-  console.warn('No .env file found, relying on environment variables');
-}
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-// Verify required environment variables
-const requiredEnvVars = ['MONGODB_URI', 'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'JWT_SECRET'];
-const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-if (missingEnvVars.length > 0) {
-  console.error('Missing required environment variables:', missingEnvVars);
+// Path to local images
+const imagesDir = path.join(__dirname, '..', 'food', 'src', 'assets', 'menu');
+const images = [
+  'burger-11.jpg',
+  'burger-12.jpg',
+  'burger-13.jpg',
+  'burger-14.jpg',
+  'burger-15.jpg',
+  'burger-16.jpg',
+  'burger-17.jpg',
+  'burger-18.jpg',
+  'ads-1.jpg',
+];
+
+// Check if directory exists
+if (!fs.existsSync(imagesDir)) {
+  console.error('Error: Images directory does not exist:', imagesDir);
   process.exit(1);
 }
 
-// Debug: Log environment variables
-console.log('Environment Variables Loaded:', {
-  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID ? '[REDACTED]' : undefined,
-  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET ? '[REDACTED]' : undefined,
-  MONGODB_URI: process.env.MONGODB_URI ? '[REDACTED]' : undefined,
-  JWT_SECRET: process.env.JWT_SECRET ? '[REDACTED]' : undefined,
-  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME ? '[REDACTED]' : undefined,
-  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY ? '[REDACTED]' : undefined,
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET ? '[REDACTED]' : undefined,
-});
+// Check available files
+const files = fs.readdirSync(imagesDir);
+console.log('Files in menu directory:', files);
+if (files.length === 0) {
+  console.error('Error: No files found in menu directory');
+  process.exit(1);
+}
 
-// Initialize Express app
-const app = express();
-
-// Middleware
-app.use(cors({
-  origin: (origin, callback) => {
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'https://food-kohl-theta.vercel.app',
-      'https://food-kohl-theta.vercel.app/',
-    ];
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.error('CORS error: Origin not allowed:', origin);
-      callback(new Error('Not allowed by CORS'));
+async function uploadImages() {
+  let uploadedCount = 0;
+  const errors = [];
+  for (const image of images) {
+    const filePath = path.join(imagesDir, image);
+    if (!fs.existsSync(filePath)) {
+      errors.push(`File not found: ${filePath}`);
+      continue;
     }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-}));
-app.use(express.json());
-app.use(morgan('combined', {
-  stream: fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' })
-}));
-
-// Root route
-app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to Tasty Burger API' });
-});
-
-// Routes
-app.use('/api/auth', authRoutes.router);
-app.use('/api/menu', menuRoutes);
-app.use('/api/cart', cartRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/razorpay', razorpayRoutes);
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Server error:', err.message, err.stack);
-  res.status(500).json({ message: 'Internal server error', error: err.message });
-});
-
-// Connect to MongoDB with retry
-const connectDB = async () => {
-  let retries = 5;
-  while (retries) {
     try {
-      await mongoose.connect(process.env.MONGODB_URI, {
-        serverSelectionTimeoutMS: 5000,
+      const result = await cloudinary.uploader.upload(filePath, {
+        folder: 'menu',
+        public_id: image.replace(/\.[^/.]+$/, ''),
       });
-      console.log('MongoDB connected successfully');
-      break;
-    } catch (err) {
-      console.error('MongoDB connection error:', err.message, err.stack);
-      retries -= 1;
-      if (retries === 0) {
-        console.error('MongoDB connection failed after retries');
-        process.exit(1);
-      }
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      console.log(`Uploaded ${image}: ${result.url}`);
+      uploadedCount++;
+    } catch (error) {
+      errors.push(`Failed to upload ${image}: ${error.message}`);
     }
   }
-};
-connectDB();
+  console.log(`Successfully uploaded ${uploadedCount} images`);
+  if (errors.length > 0) {
+    console.error('Errors encountered:', errors);
+  }
+  process.exit(errors.length > 0 ? 1 : 0);
+}
 
-// Start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+uploadImages();
 then i have uploadImages.js file
 require('dotenv').config();
 const { v2: cloudinary } = require('cloudinary');
@@ -951,4 +894,5 @@ async function uploadImages() {
 }
 
 uploadImages();
-this is my backened code 
+
+this is my backend code 
